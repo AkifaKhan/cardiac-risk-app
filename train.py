@@ -30,7 +30,7 @@ print("=" * 60)
 print("CARDIAC MORTALITY PREDICTION — MODEL TRAINING")
 print("=" * 60)
 
-df = pd.read_csv("data.csv", sep="\t",          # change sep="," if your file is comma-separated
+df = pd.read_csv("dataset.csv", sep=",",          # change sep="," if your file is comma-separated
                  na_values=[' ', '', 'NULL', 'null', 'NA', 'N/A', 'NaN', '#N/A'])
 
 # Convert ALL columns to numeric where possible — blank strings become NaN
