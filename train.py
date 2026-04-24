@@ -30,15 +30,24 @@ print("=" * 60)
 print("CARDIAC MORTALITY PREDICTION — MODEL TRAINING")
 print("=" * 60)
 
-df = pd.read_csv("dataset.csv", sep=",",          # change sep="," if your file is comma-separated
+df = pd.read_csv("data.csv", sep="\t",          # change sep="," if your file is comma-separated
                  na_values=[' ', '', 'NULL', 'null', 'NA', 'N/A', 'NaN', '#N/A'])
 
 # Convert ALL columns to numeric where possible — blank strings become NaN
+# errors='coerce' turns non-numeric values into NaN (errors='ignore' removed in pandas 2.x)
 for col in df.columns:
-    df[col] = pd.to_numeric(df[col], errors='ignore')
+    converted = pd.to_numeric(df[col], errors='coerce')
+    # Only replace if conversion was mostly successful (preserves date/text columns)
+    if converted.notna().sum() >= df[col].notna().sum() * 0.5:
+        df[col] = converted
 
 # Strip any remaining whitespace-only strings → NaN
-df = df.applymap(lambda x: np.nan if isinstance(x, str) and x.strip() == '' else x)
+# pandas >= 2.1 uses .map(); older versions use .applymap()
+_clean = lambda x: np.nan if isinstance(x, str) and x.strip() == '' else x
+try:
+    df = df.map(_clean)
+except AttributeError:
+    df = df.applymap(_clean)
 
 print(f"\n✓ Loaded {len(df)} records, {df.shape[1]} columns")
 print(f"  Mortality rate: {df['in_hospital_mortality'].mean()*100:.1f}%")
