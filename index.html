@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Cardiac Mortality Risk Predictor</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg:       #0d1117;
+    --surface:  #161b22;
+    --border:   #21262d;
+    --muted:    #8b949e;
+    --text:     #e6edf3;
+    --accent:   #58a6ff;
+    --green:    #3fb950;
+    --yellow:   #d29922;
+    --orange:   #db6d28;
+    --red:      #f85149;
+    --radius:   10px;
+    --mono:     'DM Mono', monospace;
+    --sans:     'DM Sans', sans-serif;
+    --serif:    'DM Serif Display', serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  /* ── Header ── */
+  header {
+    border-bottom: 1px solid var(--border);
+    padding: 20px 32px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    position: sticky;
+    top: 0;
+    background: var(--bg);
+    z-index: 100;
+  }
+  .logo {
+    width: 36px; height: 36px;
+    background: linear-gradient(135deg, #f85149, #db6d28);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+  header h1 { font-family: var(--serif); font-size: 20px; font-weight: 400; }
+  header span { font-size: 12px; color: var(--muted); margin-left: auto; font-family: var(--mono); }
+  .auc-badge {
+    background: #1c2128; border: 1px solid var(--border);
+    padding: 3px 10px; border-radius: 20px;
+    font-family: var(--mono); font-size: 11px; color: var(--green);
+  }
+
+  /* ── Layout ── */
+  main {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 32px 24px;
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 24px;
+  }
+
+  @media (max-width: 800px) {
+    main { grid-template-columns: 1fr; }
+    header span, .auc-badge { display: none; }
+  }
+
+  /* ── Cards ── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+    margin-bottom: 16px;
+  }
+  .card-title {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    margin-bottom: 18px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* ── Form grid ── */
+  .form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+  .form-grid.three { grid-template-columns: 1fr 1fr 1fr; }
+  .full { grid-column: 1 / -1; }
+
+  .field label {
+    display: block;
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 5px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+  }
+  .field input, .field select {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    padding: 8px 12px;
+    font-size: 13px;
+    font-family: var(--mono);
+    transition: border-color 0.15s;
+    appearance: none;
+  }
+  .field input:focus, .field select:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  .field input::placeholder { color: #484f58; }
+
+  /* ── Toggle group (Yes/No) ── */
+  .toggle-group {
+    display: flex;
+    gap: 6px;
+  }
+  .toggle-group button {
+    flex: 1;
+    padding: 7px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .toggle-group button.active {
+    background: #1f2937;
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  /* ── Submit button ── */
+  .btn-predict {
+    width: 100%;
+    padding: 14px;
+    background: linear-gradient(135deg, #f85149, #db6d28);
+    border: none;
+    border-radius: var(--radius);
+    color: white;
+    font-family: var(--serif);
+    font-size: 17px;
+    cursor: pointer;
+    margin-top: 8px;
+    letter-spacing: 0.03em;
+    transition: opacity 0.15s, transform 0.1s;
+  }
+  .btn-predict:hover  { opacity: 0.9; }
+  .btn-predict:active { transform: scale(0.99); }
+  .btn-predict:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* ── Result panel ── */
+  .result-panel { position: sticky; top: 90px; }
+
+  .risk-dial {
+    text-align: center;
+    padding: 28px 20px 20px;
+  }
+  .risk-number {
+    font-family: var(--serif);
+    font-size: 64px;
+    line-height: 1;
+    font-style: italic;
+    transition: color 0.4s;
+  }
+  .risk-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 4px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+  .risk-badge {
+    display: inline-block;
+    margin-top: 14px;
+    padding: 5px 18px;
+    border-radius: 20px;
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    border: 1px solid;
+    transition: all 0.4s;
+  }
+
+  .level-green  { color: var(--green);  border-color: var(--green);  background: #0d1f17; }
+  .level-yellow { color: var(--yellow); border-color: var(--yellow); background: #1f1a0d; }
+  .level-orange { color: var(--orange); border-color: var(--orange); background: #1f130d; }
+  .level-red    { color: var(--red);    border-color: var(--red);    background: #1f0d0d; }
+
+  /* Progress bar */
+  .risk-bar-wrap {
+    background: var(--border);
+    border-radius: 4px;
+    height: 6px;
+    margin: 18px 0 14px;
+    overflow: hidden;
+  }
+  .risk-bar-fill {
+    height: 100%;
+    border-radius: 4px;
+    width: 0%;
+    transition: width 0.6s ease, background 0.4s;
+  }
+
+  .interpretation {
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.6;
+    padding: 12px;
+    background: var(--bg);
+    border-radius: 6px;
+    border-left: 3px solid var(--border);
+    margin-top: 4px;
+    transition: border-color 0.4s;
+  }
+
+  /* Top features table */
+  .features-list { margin-top: 4px; }
+  .feat-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+  }
+  .feat-row:last-child { border-bottom: none; }
+  .feat-name { color: var(--text); flex: 1; }
+  .feat-val  { font-family: var(--mono); color: var(--accent); font-size: 11px; margin: 0 12px; }
+  .feat-imp  {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    background: var(--bg);
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+
+  /* Placeholder state */
+  .placeholder {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--muted);
+  }
+  .placeholder .icon { font-size: 40px; margin-bottom: 12px; opacity: 0.4; }
+  .placeholder p { font-size: 12px; line-height: 1.7; }
+
+  /* Spinner */
+  .spinner {
+    width: 24px; height: 24px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    margin: 30px auto;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Error */
+  .error-msg {
+    color: var(--red);
+    font-size: 12px;
+    padding: 10px 14px;
+    background: #1f0d0d;
+    border: 1px solid var(--red);
+    border-radius: 6px;
+    margin-top: 8px;
+    display: none;
+  }
+
+  /* Disclaimer */
+  .disclaimer {
+    font-size: 10px;
+    color: #484f58;
+    text-align: center;
+    margin-top: 16px;
+    line-height: 1.6;
+    padding: 0 8px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">🫀</div>
+  <h1>Cardiac Mortality Risk Predictor</h1>
+  <span>For clinical decision support only</span>
+  <div class="auc-badge" id="aucBadge">Loading model…</div>
+</header>
+
+<main>
+  <!-- ─── LEFT: FORM ─── -->
+  <div>
+
+    <!-- Demographics -->
+    <div class="card">
+      <div class="card-title">Patient Demographics</div>
+      <div class="form-grid three">
+        <div class="field">
+          <label>Age (years)</label>
+          <input type="number" id="patient_age" placeholder="64" min="18" max="110"/>
+        </div>
+        <div class="field">
+          <label>Gender</label>
+          <select id="gender_id">
+            <option value="1">Male</option>
+            <option value="2">Female</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>BMI</label>
+          <input type="number" id="BMI" placeholder="25.0" step="0.1"/>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pre-op Risk Factors -->
+    <div class="card">
+      <div class="card-title">Pre-operative Risk Factors</div>
+      <div class="form-grid">
+        <div class="field">
+          <label>Diabetes</label>
+          <select id="diabetes">
+            <option value="0">None</option>
+            <option value="1">Type 1</option>
+            <option value="2">Type 2</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Hypertension</label>
+          <div class="toggle-group" data-id="hypertension">
+            <button class="active" data-val="0">No</button>
+            <button data-val="1">Yes</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>Dyslipidemia</label>
+          <div class="toggle-group" data-id="Dyslipidemia">
+            <button class="active" data-val="0">No</button>
+            <button data-val="1">Yes</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>Active Tobacco Use</label>
+          <div class="toggle-group" data-id="Active_tobacco_use">
+            <button class="active" data-val="0">No</button>
+            <button data-val="1">Yes</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>Family History CAD</label>
+          <div class="toggle-group" data-id="f_history_cad">
+            <button class="active" data-val="0">No</button>
+            <button data-val="1">Yes</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>Cerebrovascular Disease</label>
+          <div class="toggle-group" data-id="Cerebovascular_disease">
+            <button class="active" data-val="0">No</button>
+            <button data-val="1">Yes</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>Chronic Lung Disease</label>
+          <div class="toggle-group" data-id="chronic_lung_disease">
+            <button class="active" data-val="0">No</button>
+            <button data-val="1">Yes</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>Pre-op Dialysis</label>
+          <div class="toggle-group" data-id="dialysis">
+            <button class="active" data-val="0">No</button>
+            <button data-val="1">Yes</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Cardiac Status -->
+    <div class="card">
+      <div class="card-title">Cardiac Status</div>
+      <div class="form-grid">
+        <div class="field">
+          <label>Ejection Fraction (%)</label>
+          <input type="number" id="ejection_fraction" placeholder="55" min="5" max="80"/>
+        </div>
+        <div class="field">
+          <label>NYHA Class</label>
+          <select id="NYHA_class">
+            <option value="1">I — No symptoms</option>
+            <option value="2" selected>II — Mild</option>
+            <option value="3">III — Moderate</option>
+            <option value="4">IV — Severe</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Congestive Heart Failure</label>
+          <div class="toggle-group" data-id="congestive_heart_failure_A">
+            <button class="active" data-val="0">No</button>
+            <button data-val="1">Yes</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>Cardiogenic Shock</label>
+          <div class="toggle-group" data-id="cardiogenic_shock">
+            <button class="active" data-val="0">No</button>
+            <button data-val="1">Yes</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>Pre-op Resuscitation</label>
+          <div class="toggle-group" data-id="resuscitation">
+            <button class="active" data-val="0">No</button>
+            <button data-val="1">Yes</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>Recent MI</label>
+          <div class="toggle-group" data-id="myocardial_infarction">
+            <button class="active" data-val="0">No</button>
+            <button data-val="1">Yes</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>Arrhythmia</label>
+          <div class="toggle-group" data-id="arrhythmia">
+            <button class="active" data-val="0">No</button>
+            <button data-val="1">Yes</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>AF / Flutter</label>
+          <div class="toggle-group" data-id="AFibFlutter">
+            <button class="active" data-val="0">No</button>
+            <button data-val="1">Yes</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>Pulm. Artery Hypertension</label>
+          <div class="toggle-group" data-id="pulmonary_artery_hypertension">
+            <button class="active" data-val="0">No</button>
+            <button data-val="1">Yes</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>Diseased Coronaries</label>
+          <select id="Coronaries_diseased">
+            <option value="0">0</option>
+            <option value="1">1</option>
+            <option value="2" selected>2</option>
+            <option value="3">3</option>
+            <option value="4">4+</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Left Main Disease</label>
+          <div class="toggle-group" data-id="left_main_disease">
+            <button class="active" data-val="0">No</button>
+            <button data-val="1">Yes</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>Aortic Regurgitation</label>
+          <select id="Aortic_regurgitation">
+            <option value="0">None</option>
+            <option value="1">Mild</option>
+            <option value="2">Moderate–Severe</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Mitral Regurgitation</label>
+          <select id="Mitral_regurgitation">
+            <option value="0">None</option>
+            <option value="1">Mild</option>
+            <option value="2">Moderate–Severe</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Labs & Vitals -->
+    <div class="card">
+      <div class="card-title">Pre-operative Labs & Vitals</div>
+      <div class="form-grid three">
+        <div class="field">
+          <label>Hematocrit (%)</label>
+          <input type="number" id="last_hematocrit" placeholder="40.0" step="0.1"/>
+        </div>
+        <div class="field">
+          <label>Creatinine (mg/dL)</label>
+          <input type="number" id="last_cretenine_preop" placeholder="1.0" step="0.01"/>
+        </div>
+        <div class="field">
+          <label>Systolic BP (mmHg)</label>
+          <input type="number" id="BPsystolic" placeholder="120"/>
+        </div>
+      </div>
+    </div>
+
+    <!-- Intra-op -->
+    <div class="card">
+      <div class="card-title">Intra-operative</div>
+      <div class="form-grid">
+        <div class="field">
+          <label>CPB Perfusion Time (min)</label>
+          <input type="number" id="perfusion_time_min" placeholder="75"/>
+        </div>
+        <div class="field">
+          <label>Cross-Clamp Time (min)</label>
+          <input type="number" id="cross_clamp_time_min" placeholder="55"/>
+        </div>
+        <div class="field">
+          <label>IABP Used</label>
+          <div class="toggle-group" data-id="IABP">
+            <button class="active" data-val="0">No</button>
+            <button data-val="1">Yes</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>Intraop Blood Products</label>
+          <div class="toggle-group" data-id="intraop_blood_products">
+            <button class="active" data-val="0">No</button>
+            <button data-val="1">Yes</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>Total Bypasses Grafted</label>
+          <input type="number" id="Total_bypasses_grafted" placeholder="3" min="0" max="10"/>
+        </div>
+      </div>
+    </div>
+
+    <!-- Post-op (optional) -->
+    <div class="card">
+      <div class="card-title">Post-operative (optional — leave blank if not yet available)</div>
+      <div class="form-grid three">
+        <div class="field">
+          <label>Hours Ventilated</label>
+          <input type="number" id="initial_hours_ventilated" placeholder="—"/>
+        </div>
+        <div class="field">
+          <label>ICU Hours</label>
+          <input type="number" id="initial_icu_hours" placeholder="—"/>
+        </div>
+        <div class="field">
+          <label>Post-op Creatinine</label>
+          <input type="number" id="post_op_creatinine" placeholder="—" step="0.01"/>
+        </div>
+        <div class="field">
+          <label>Drainage 12h (mL)</label>
+          <input type="number" id="drainage_at_12_hours" placeholder="—"/>
+        </div>
+        <div class="field">
+          <label>Drainage 24h (mL)</label>
+          <input type="number" id="drainage_at_24_hours" placeholder="—"/>
+        </div>
+        <div class="field">
+          <label>Reintubated</label>
+          <div class="toggle-group" data-id="reintubated_hospital_stay">
+            <button class="active" data-val="">N/A</button>
+            <button data-val="0">No</button>
+            <button data-val="1">Yes</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="errorMsg" class="error-msg"></div>
+    <button class="btn-predict" id="predictBtn" onclick="runPrediction()">
+      Calculate Mortality Risk
+    </button>
+
+  </div>
+
+  <!-- ─── RIGHT: RESULT ─── -->
+  <div class="result-panel">
+    <div class="card" id="resultCard">
+      <div class="card-title">Risk Assessment</div>
+      <div id="resultBody">
+        <div class="placeholder">
+          <div class="icon">🫀</div>
+          <p>Fill in patient details on the left and press<br><strong>Calculate Mortality Risk</strong><br>to see the prediction.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Model Info</div>
+      <div class="features-list" id="modelInfo">
+        <div class="feat-row">
+          <span class="feat-name">Algorithm</span>
+          <span class="feat-val">Random Forest</span>
+        </div>
+        <div class="feat-row">
+          <span class="feat-name">AUC-ROC</span>
+          <span class="feat-val" id="infoAUC">—</span>
+        </div>
+        <div class="feat-row">
+          <span class="feat-name">CV AUC (5-fold)</span>
+          <span class="feat-val" id="infoCV">—</span>
+        </div>
+      </div>
+    </div>
+
+    <p class="disclaimer">
+      ⚠️ This tool is for clinical decision <em>support</em> only.<br>
+      It does not replace physician judgement.<br>
+      Always consult your clinical team before acting on predictions.
+    </p>
+  </div>
+</main>
+
+<script>
+// ── Toggle button groups ────────────────────────────────────────────────
+document.querySelectorAll('.toggle-group').forEach(group => {
+  group.querySelectorAll('button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      group.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    });
+  });
+});
+
+function getToggleVal(id) {
+  const group = document.querySelector(`.toggle-group[data-id="${id}"]`);
+  if (!group) return null;
+  const active = group.querySelector('button.active');
+  const val = active ? active.dataset.val : '';
+  return val === '' ? null : Number(val);
+}
+
+function getFieldVal(id) {
+  const el = document.getElementById(id);
+  if (!el) return null;
+  const v = el.value.trim();
+  return v === '' ? null : Number(v);
+}
+
+// ── Load model info on page load ────────────────────────────────────────
+async function loadModelInfo() {
+  try {
+    const r = await fetch('/model-info');
+    if (!r.ok) return;
+    const d = await r.json();
+    document.getElementById('aucBadge').textContent = `AUC ${d.model_auc.toFixed(3)}`;
+    document.getElementById('infoAUC').textContent  = d.model_auc.toFixed(3);
+    document.getElementById('infoCV').textContent   = `${d.cv_auc_mean.toFixed(3)} ± ${d.cv_auc_std.toFixed(3)}`;
+  } catch(e) {
+    document.getElementById('aucBadge').textContent = 'API offline';
+  }
+}
+loadModelInfo();
+
+// ── Run prediction ──────────────────────────────────────────────────────
+async function runPrediction() {
+  const btn = document.getElementById('predictBtn');
+  const errEl = document.getElementById('errorMsg');
+  errEl.style.display = 'none';
+
+  // Build payload
+  const payload = {
+    patient_age:               getFieldVal('patient_age'),
+    gender_id:                 getFieldVal('gender_id'),
+    BMI:                       getFieldVal('BMI'),
+    diabetes:                  getFieldVal('diabetes'),
+    hypertension:              getToggleVal('hypertension'),
+    Dyslipidemia:              getToggleVal('Dyslipidemia'),
+    Active_tobacco_use:        getToggleVal('Active_tobacco_use'),
+    f_history_cad:             getToggleVal('f_history_cad'),
+    Cerebovascular_disease:    getToggleVal('Cerebovascular_disease'),
+    chronic_lung_disease:      getToggleVal('chronic_lung_disease'),
+    dialysis:                  getToggleVal('dialysis'),
+    ejection_fraction:         getFieldVal('ejection_fraction'),
+    NYHA_class:                getFieldVal('NYHA_class'),
+    congestive_heart_failure_A: getToggleVal('congestive_heart_failure_A'),
+    cardiogenic_shock:         getToggleVal('cardiogenic_shock'),
+    resuscitation:             getToggleVal('resuscitation'),
+    myocardial_infarction:     getToggleVal('myocardial_infarction'),
+    arrhythmia:                getToggleVal('arrhythmia'),
+    AFibFlutter:               getToggleVal('AFibFlutter'),
+    pulmonary_artery_hypertension: getToggleVal('pulmonary_artery_hypertension'),
+    Coronaries_diseased:       getFieldVal('Coronaries_diseased'),
+    left_main_disease:         getToggleVal('left_main_disease'),
+    Aortic_regurgitation:      getFieldVal('Aortic_regurgitation'),
+    Mitral_regurgitation:      getFieldVal('Mitral_regurgitation'),
+    last_hematocrit:           getFieldVal('last_hematocrit'),
+    last_cretenine_preop:      getFieldVal('last_cretenine_preop'),
+    BPsystolic:                getFieldVal('BPsystolic'),
+    perfusion_time_min:        getFieldVal('perfusion_time_min'),
+    cross_clamp_time_min:      getFieldVal('cross_clamp_time_min'),
+    IABP:                      getToggleVal('IABP'),
+    intraop_blood_products:    getToggleVal('intraop_blood_products'),
+    Total_bypasses_grafted:    getFieldVal('Total_bypasses_grafted'),
+    initial_hours_ventilated:  getFieldVal('initial_hours_ventilated'),
+    initial_icu_hours:         getFieldVal('initial_icu_hours'),
+    drainage_at_12_hours:      getFieldVal('drainage_at_12_hours'),
+    drainage_at_24_hours:      getFieldVal('drainage_at_24_hours'),
+    post_op_creatinine:        getFieldVal('post_op_creatinine'),
+    reintubated_hospital_stay: getToggleVal('reintubated_hospital_stay'),
+  };
+
+  // Validate required
+  const required = ['patient_age', 'BMI', 'ejection_fraction',
+                    'last_hematocrit', 'last_cretenine_preop', 'BPsystolic'];
+  for (const key of required) {
+    if (payload[key] === null || isNaN(payload[key])) {
+      errEl.textContent = `Please fill in: ${key.replace(/_/g,' ')}`;
+      errEl.style.display = 'block';
+      return;
+    }
+  }
+
+  // Show spinner
+  btn.disabled = true;
+  btn.textContent = 'Calculating…';
+  document.getElementById('resultBody').innerHTML = '<div class="spinner"></div>';
+
+  try {
+    const res = await fetch('/predict', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(payload)
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      // detail can be a string, array of objects (422), or missing
+      let msg = 'Server error';
+      if (typeof err.detail === 'string') {
+        msg = err.detail;
+      } else if (Array.isArray(err.detail)) {
+        msg = err.detail.map(e => `${e.loc?.join('.')}: ${e.msg}`).join('; ');
+      } else if (err.detail) {
+        msg = JSON.stringify(err.detail);
+      }
+      throw new Error(`HTTP ${res.status} — ${msg}`);
+    }
+
+    const d = await res.json();
+    renderResult(d);
+
+  } catch(e) {
+    errEl.textContent = 'Error: ' + e.message + '. Make sure the FastAPI server is running.';
+    errEl.style.display = 'block';
+    document.getElementById('resultBody').innerHTML = `
+      <div class="placeholder">
+        <div class="icon">⚠️</div>
+        <p>Could not reach the prediction API.<br>Run: <code>uvicorn app:app --reload</code></p>
+      </div>`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Calculate Mortality Risk';
+  }
+}
+
+function renderResult(d) {
+  const colorMap = {green:'var(--green)', yellow:'var(--yellow)', orange:'var(--orange)', red:'var(--red)'};
+  const col = colorMap[d.risk_color] || 'var(--text)';
+  const pct = d.risk_probability * 100;
+
+  // Top features HTML
+  const featRows = d.top_risk_features.map(f =>
+    `<div class="feat-row">
+      <span class="feat-name">${f.feature}</span>
+      <span class="feat-val">${f.value ?? '—'}</span>
+      <span class="feat-imp">${(f.importance*100).toFixed(1)}%</span>
+    </div>`
+  ).join('');
+
+  document.getElementById('resultBody').innerHTML = `
+    <div class="risk-dial">
+      <div class="risk-number" style="color:${col}">${d.risk_percent}</div>
+      <div class="risk-label">In-hospital mortality risk</div>
+      <div class="risk-badge level-${d.risk_color}">${d.risk_level} Risk</div>
+    </div>
+
+    <div class="risk-bar-wrap">
+      <div class="risk-bar-fill" id="riskBar"
+           style="background:${col}; width:0%"></div>
+    </div>
+
+    <div class="interpretation">${d.interpretation}</div>
+
+    <div style="margin-top:18px">
+      <div class="card-title" style="margin-top:0">Top Contributing Factors</div>
+      <div class="features-list">${featRows}</div>
+    </div>
+  `;
+
+  // Animate bar
+  setTimeout(() => {
+    const bar = document.getElementById('riskBar');
+    if (bar) bar.style.width = Math.min(pct, 100) + '%';
+  }, 50);
+}
+</script>
+</body>
+</html>
